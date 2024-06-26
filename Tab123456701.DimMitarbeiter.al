@@ -5,7 +5,7 @@ table 123456701 DimMitarbeiter
 
     fields
     {
-        field(1; MitarbeiterNummer; Code[10])
+        field(1; MitarbeiterNummer; Code[20])
         {
             Caption = 'MitarbeiterNummer';
             DataClassification = CustomerContent;
@@ -20,7 +20,7 @@ table 123456701 DimMitarbeiter
             Caption = 'Nachname';
             DataClassification = CustomerContent;
         }
-        field(4; MitarbeiterInitailien; Text[2])
+        field(4; MitarbeiterInitailien; Text[30])
         {
             Caption = 'MitarbeiterInitailien';
             DataClassification = CustomerContent;
@@ -30,47 +30,42 @@ table 123456701 DimMitarbeiter
             Caption = 'Berufsbezeichnung';
             DataClassification = CustomerContent;
         }
-        field(6; Strasse; Text[50])
+        field(6; Adresse; Text[50])
         {
-            Caption = 'Strasse';
+            Caption = 'Adresse';
             DataClassification = CustomerContent;
         }
-        field(7; Hausnummer; Integer)
-        {
-            Caption = 'Hausnummer';
-            DataClassification = CustomerContent;
-        }
-        field(8; PLZ; Integer)
+        field(7; PLZ; Code[20])
         {
             Caption = 'PLZ';
             DataClassification = CustomerContent;
         }
-        field(9; Ort; Text[50])
+        field(8; Ort; Text[50])
         {
             Caption = 'Ort';
             DataClassification = CustomerContent;
         }
-        field(10; Land; Text[3])
+        field(9; Land; Text[3])
         {
             Caption = 'Land';
             DataClassification = CustomerContent;
         }
-        field(11; Telefon; Integer)
+        field(10; Telefon; Text[30])
         {
             Caption = 'Telefon';
             DataClassification = CustomerContent;
         }
-        field(12; Geburtstag; Date)
+        field(11; Geburtstag; Date)
         {
             Caption = 'Geburtstag';
             DataClassification = CustomerContent;
         }
-        field(13; Einstellungstag; Date)
+        field(12; Einstellungstag; Date)
         {
             Caption = 'Einstellungstag';
             DataClassification = CustomerContent;
         }
-        field(14; Abteilung; Text[30])
+        field(13; Abteilung; Text[30])
         {
             Caption = 'Abteilung';
             DataClassification = CustomerContent;
