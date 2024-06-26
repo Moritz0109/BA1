@@ -35,7 +35,7 @@ table 123456700 DimZeit
             Caption = 'Jahr';
             DataClassification = CustomerContent;
         }
-        field(7; NichtArbeitstag; Boolean)
+        field(7; IstArbeitstag; Boolean)
         {
             Caption = 'IstArbeitstag';
             DataClassification = CustomerContent;

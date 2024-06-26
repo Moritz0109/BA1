@@ -6,7 +6,7 @@ page 123456703 ListPartDimZeit
     Caption = 'ListPartDimZeit';
     PageType = ListPart;
     SourceTable = DimZeit;
-    
+
     layout
     {
         area(Content)
@@ -25,7 +25,7 @@ page 123456703 ListPartDimZeit
                 {
                     ToolTip = 'Specifies the value of the Monat field.', Comment = '%';
                 }
-                field(NichtArbeitstag; Rec.NichtArbeitstag)
+                field(NichtArbeitstag; Rec.IstArbeitstag)
                 {
                     ToolTip = 'Specifies the value of the IstArbeitstag field.', Comment = '%';
                 }

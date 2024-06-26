@@ -98,19 +98,57 @@ page 123456701 PageFinal
     var
         RecDimZeit: Record DimZeit;
         RecBasiskalender: Record Date;
-        tmpDate: Date;
+        CU7600: Codeunit 7600;
+        Rec7602: Record 7602;
     begin
         RecDimZeit.DeleteAll();
+        Rec7602."Base Calendar Code" := 'DE';
         RecBasiskalender.SetRange(RecBasiskalender."Period Type", 0);
         // //Fehlerhandling erforderlich!!!
         RecBasiskalender.SetFilter("Period Start", '%1..%2', StartDateFilter, EndDateFilter);
-        RecBasiskalender.FindSet();
-        RecDimZeit.Datum := RecBasiskalender."Period Start";
-        RecBasiskalender.Next();
-        RecDimZeit.Datum := RecBasiskalender."Period Start";
+        if RecBasiskalender.FindSet() then
+            repeat
+                RecDimZeit.Datum := RecBasiskalender."Period Start";
+                RecDimZeit.Wochentag := Format(RecBasiskalender."Period Start", 0, '<Weekday Text>');
+                RecDimZeit.Tag := Date2DMY(RecBasiskalender."Period Start", 1);
+                RecDimZeit.Monat := Date2DMY(RecBasiskalender."Period Start", 2);
+                RecDimZeit.Jahr := Date2DMY(RecBasiskalender."Period Start", 3);
+                RecDimZeit.Quartal := Quartalberechnen(RecDimZeit.Monat);
+                if Rec7602.FindFirst() then
+                    if CU7600.IsNonworkingDay(RecDimZeit.Datum, Rec7602) then
+                        RecDimZeit.IstArbeitstag := false
+                    else
+                        RecDimZeit.IstArbeitstag := true
+                else
+                    Message('Tabelle 7602 leer!');
+                RecDimZeit.Insert();
+
+            until RecBasiskalender.Next() = 0;
 
     end;
+    // var
+    //     Msg: Label 'Today is %1.\And today is %2.';
+    //     DateForWeek: Record Date;
+    // begin
+    //     if DateForWeek.Get(DateForWeek."Period Type"::Date, Today) then
+    //         Message(Msg, StartDateFilter, DateForWeek."Period Name");
+    // end;
+    procedure Quartalberechnen(Monat: Integer): Integer
+    var
+        ergbnis: Integer;
+    begin
+        ergbnis := (Monat / 3 + 1);
+        exit(ergbnis);
+    end;
 
+    procedure isWorkday(Datum: Date) return: Boolean
+    var
+        Rec7602: Record 7602;
+        Cu7600: Codeunit 7600;
+    begin
+        Rec7602."Base Calendar Code" := 'DE';
+        return := not Cu7600.IsNonworkingDay(Datum, Rec7602);
+    end;
 
     var
         StartDateFilter: Date;
