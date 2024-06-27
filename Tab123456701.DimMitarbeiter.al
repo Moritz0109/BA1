@@ -65,7 +65,7 @@ table 123456701 DimMitarbeiter
             Caption = 'Einstellungstag';
             DataClassification = CustomerContent;
         }
-        field(13; Abteilung; Text[30])
+        field(13; Abteilung; Code[30])
         {
             Caption = 'Abteilung';
             DataClassification = CustomerContent;

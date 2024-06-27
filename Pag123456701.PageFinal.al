@@ -2,6 +2,7 @@ namespace BA.BA;
 using Microsoft.HumanResources.Employee;
 using Microsoft.Foundation.Calendar;
 using System.Utilities;
+using Microsoft.Inventory.Item.Catalog;
 using Microsoft.HumanResources.Absence;
 
 page 123456701 PageFinal
@@ -33,6 +34,14 @@ page 123456701 PageFinal
                 }
 
             }
+            group(Bericht)
+            {
+                part(Report; ListPartReport)
+                {
+                    Editable = true;
+                }
+
+            }
             group(Facttable)
             {
                 part(PSFT; ListPartPSFT)
@@ -43,7 +52,33 @@ page 123456701 PageFinal
                 {
                     Editable = true;
                 }
+                part(ASFT; ListPartASFT)
+                {
+                    Editable = true;
+                }
+            }
+            group(Dimiensionen)
+            {
+                part(DimAbwesenheitsgrund; ListPartDimAbwesenheitsgrund)
+                {
+                    Editable = true;
+                }
+                part(DimMitarbeiter; ListPartDimMitarbeiter)
+                {
+                    Editable = true;
+                }
+                part(DimZeit; ListPartDimZeit)
+                {
+                    Editable = true;
+                }
 
+            }
+            group(FehlerhafteDatensatze)
+            {
+                part(DoppelteDatensatz; ListPartDoppelteDatensatz)
+                {
+                    Editable = true;
+                }
             }
         }
     }
@@ -58,17 +93,32 @@ page 123456701 PageFinal
 
                 action(CalcPSFT)
                 {
-                    Caption = 'Berechnung PSFT';
-                    ToolTip = 'Füllt die PSFT Tabelle';
+                    Caption = 'Befüllung';
+                    ToolTip = 'Füllt die Tabellen';
                     trigger
                     OnAction()
                     begin
-                        fillDimMitarbeiter();
-                        fillDimZeit();
-                        fillDimAbwesenheitsgrund();
-                        fillPSFT();
-                        fillTFT();
-                        Message('Erfolgreich geladen');
+                        //Fehlerabfangen 
+                        if EndDateFilter < StartDateFilter then
+                            Message('Das Enddatum darf nicht hinter dem Startdatum liegen!')
+                        else
+                            if StartDateFilter = 0D then
+                                Message('Das Startdatum muss ausgewählt sein!')
+                            else
+                                if EndDateFilter = 0D then
+                                    Message('Das Enddatum muss ausgewählt sein!')
+                                else begin
+                                    //Beginn der Befüllung von Dim und Factable
+                                    doppeltDatensatz();
+                                    fillDimMitarbeiter();
+                                    fillDimZeit();
+                                    fillDimAbwesenheitsgrund();
+                                    fillPSFT();
+                                    fillTFT();
+                                    fillASFT();
+                                    fillReport();
+                                    Message('Erfolgreich geladen');
+                                end;
                     end;
 
 
@@ -79,13 +129,17 @@ page 123456701 PageFinal
 
     procedure fillDimMitarbeiter()
     var
+        //Anlegen der Records
         RecMitarbeiter: Record Employee;
         RecDimMitarbeiter: Record DimMitarbeiter;
     begin
+        //Dim leeren
         RecDimMitarbeiter.DeleteAll();
         if RecMitarbeiter.FindSet() then
             repeat
+                //Datensatz initalisieren
                 RecDimMitarbeiter.Init();
+                //Dim Befüllen aus den jedweiligen Tabellen
                 RecDimMitarbeiter."MitarbeiterNummer" := RecMitarbeiter."No.";
                 RecDimMitarbeiter."Vorname" := RecMitarbeiter."First Name";
                 RecDimMitarbeiter."Nachname" := RecMitarbeiter."Last Name";
@@ -99,23 +153,29 @@ page 123456701 PageFinal
                 RecDimMitarbeiter.Geburtstag := RecMitarbeiter."Birth Date";
                 RecDimMitarbeiter.Einstellungstag := RecMitarbeiter."Employment Date";
                 RecDimMitarbeiter.Abteilung := RecMitarbeiter."Global Dimension 1 Code";
+                //Datensatz einfügen
                 RecDimMitarbeiter.Insert();
             until RecMitarbeiter.Next() = 0;
     end;
 
     procedure fillDimZeit()
     var
+        //Anlegen der Records
         RecDimZeit: Record DimZeit;
         RecBasiskalender: Record Date;
+        //Nutzung für IstArbeitstag
         CU7600: Codeunit 7600;
         Rec7602: Record 7602;
     begin
+        //Leerung der Dim
         RecDimZeit.DeleteAll();
+        //Tage werden in der Tabelle angezeigt
         RecBasiskalender.SetRange(RecBasiskalender."Period Type", 0);
-        // //Fehlerhandling erforderlich!!!
+        //Nach Zeitraum Filtern vom Nutzer
         RecBasiskalender.SetFilter("Period Start", '%1..%2', StartDateFilter, EndDateFilter);
         if RecBasiskalender.FindSet() then
             repeat
+                //Befüllen der Dim durch Basiskalender
                 RecDimZeit.Datum := RecBasiskalender."Period Start";
                 RecDimZeit.Wochentag := Format(RecBasiskalender."Period Start", 0, '<Weekday Text>');
                 RecDimZeit.Tag := Date2DMY(RecBasiskalender."Period Start", 1);
@@ -123,6 +183,7 @@ page 123456701 PageFinal
                 RecDimZeit.Jahr := Date2DMY(RecBasiskalender."Period Start", 3);
                 RecDimZeit.Quartal := Quartalberechnen(RecDimZeit.Monat);
                 RecDimZeit.IstArbeitstag := isWorkday(RecBasiskalender."Period Start");
+                //Datensatz einfügen
                 RecDimZeit.Insert();
 
             until RecBasiskalender.Next() = 0;
@@ -131,40 +192,49 @@ page 123456701 PageFinal
 
     procedure fillDimAbwesenheitsgrund()
     var
+        //Anlegen der Records
         RecDimAbwesenheitsgrund: Record DimAbwesenheitsgrund;
         RecAbwesenheitsgrund: Record 5206;
     begin
+        //Leerung der Dim
         RecDimAbwesenheitsgrund.DeleteAll();
         if RecAbwesenheitsgrund.FindSet() then
             repeat
+                //Datensatz Initalisieren
                 RecDimAbwesenheitsgrund.Init();
+                //Dim füllen aus Abwesenheitsgrund Tabelle
                 RecDimAbwesenheitsgrund.GrundID := RecAbwesenheitsgrund.Code;
                 RecDimAbwesenheitsgrund.Grundbezeichnung := RecAbwesenheitsgrund.Description;
+                //Datensatz einfügen
                 RecDimAbwesenheitsgrund.Insert()
             until RecAbwesenheitsgrund.Next() = 0;
     end;
 
     procedure fillPSFT()
     var
+        //Anlegen der Records
         recPSFT: Record TablePSFT;
         recDimZeit: Record DimZeit;
         recDimMitarbeiter: Record DimMitarbeiter;
         recDimAbwesenheitsgrund: Record DimAbwesenheitsgrund;
         recAbwesenheitRoh: Record "Employee Absence";
     begin
+        //Leerung der Dim
         recPSFT.DeleteAll();
+        //Jeder Tag wird aufgenommen
         if recDimZeit.FindSet() then
             repeat
+                //Jeder Mitarbeiter
                 if recDimMitarbeiter.FindSet() then
                     repeat
-                        // if recDimAbwesenheitsgrund.FindSet() then
-                        //     repeat
+                        //Kreuzprodukt bilden
                         recPSFT.Init();
                         recPSFT.Tag := recDimZeit.Tag;
                         recPSFT.Monat := recDimZeit.Monat;
                         recPSFT.Jahr := recDimZeit.Jahr;
                         recPSFT.MitarbeiterID := recDimMitarbeiter.MitarbeiterNummer;
                         recPSFT.Abteilung := recDimMitarbeiter.Abteilung;
+                        //Sollte eine Abwesenheit vorhanden sein wird diese gespeichert
                         recAbwesenheitRoh.SetRange("Employee No.", recDimMitarbeiter.MitarbeiterNummer);
                         recAbwesenheitRoh.SetRange("From Date", recDimZeit.Datum);
                         if recAbwesenheitRoh.FindSet() then begin
@@ -179,13 +249,13 @@ page 123456701 PageFinal
                         end;
                         recAbwesenheitRoh.Reset();
                         recPSFT.Insert();
-                    // until recDimAbwesenheitsgrund.Next() = 0;
                     until recDimMitarbeiter.Next() = 0;
             until recDimZeit.Next() = 0;
     end;
 
     procedure fillTFT()
     var
+        //Erstellung der Records
         recTFT: Record TableTFT;
         recDimZeit: Record DimZeit;
         recDimMitarbeiter: Record DimMitarbeiter;
@@ -193,11 +263,13 @@ page 123456701 PageFinal
         recAbwesenheitRoh: Record "Employee Absence";
         TFTID: Integer;
     begin
+        //Leerung der Dim
         recTFT.DeleteAll();
         TFTID := 1;
         recAbwesenheitRoh.SetRange("From Date", StartDateFilter, EndDateFilter);
         if recAbwesenheitRoh.FindSet() then
             repeat
+                //Datensatz Initalisieren
                 recTFT.Init();
                 TFTID := TFTID + 1;
                 recTFT.TFTID := TFTID;
@@ -217,25 +289,162 @@ page 123456701 PageFinal
 
     procedure fillASFT()
     var
-        recASFT: Record TableTFT;
+        recASFT: Record TableASFT;
         recDimZeit: Record DimZeit;
         recDimMitarbeiter: Record DimMitarbeiter;
         recDimAbwesenheitsgrund: Record DimAbwesenheitsgrund;
         recAbwesenheitRoh: Record "Employee Absence";
+        ASFTID: Integer;
+        currentDate: Date;
+        daysCount: Integer;
+        i: Integer;
     begin
         recASFT.DeleteAll();
+        ASFTID := 1;
+        repeat
+            recASFT.Init();
+            recASFT.ASFTID := ASFTID;
+            ASFTID := ASFTID + 1;
 
+            if recAbwesenheitRoh."To Date" = 0D then begin
+                recASFT.MitarbeiterID := recDimMitarbeiter.MitarbeiterNummer;
+                recASFT.BeginAbwesenheit := recAbwesenheitRoh."From Date";
+                recASFT.Messeinheit := recAbwesenheitRoh."Unit of Measure Code";
+                recASFT.GrundID := recAbwesenheitRoh."Cause of Absence Code";
+                recASFT.Dauer := recAbwesenheitRoh.Quantity;
+                recASFT.Abteilung := recDimMitarbeiter.Abteilung;
+                recDimZeit.SetRange(recDimZeit.Datum, recASFT.BeginAbwesenheit);
 
+                if recDimZeit.FindSet() then begin
+                    if recDimZeit.Wochentag = 'Montag' then
+                        recASFT.AbwesenheitsMontage := 1;
+                end;
+            end else begin
+                recASFT.MitarbeiterID := recDimMitarbeiter.MitarbeiterNummer;
+                recASFT.BeginAbwesenheit := recAbwesenheitRoh."From Date";
+                recASFT.EndeAbwesenheit := recAbwesenheitRoh."To Date";
+                recASFT.Messeinheit := recAbwesenheitRoh."Unit of Measure Code";
+                recASFT.GrundID := recAbwesenheitRoh."Cause of Absence Code";
+                recASFT.Dauer := recAbwesenheitRoh.Quantity;
+                recASFT.Abteilung := recDimMitarbeiter.Abteilung;
+                recDimZeit.SetRange(recDimZeit.Datum, recASFT.BeginAbwesenheit);
+
+                // Schleife über die Quantity-Tage
+                currentDate := recAbwesenheitRoh."From Date";
+                daysCount := recAbwesenheitRoh.Quantity;
+
+                for i := 1 to daysCount do begin
+                    recDimZeit.SetRange(recDimZeit.Datum, currentDate);
+                    if recDimZeit.FindFirst() then begin
+                        if recDimZeit.Wochentag = 'Montag' then begin
+                            recASFT.AbwesenheitsMontage := recASFT.AbwesenheitsMontage + 1;
+                        end;
+                    end;
+                    currentDate := currentDate + 1;
+                end;
+            end;
+            recASFT.Insert();
+        until recAbwesenheitRoh.Next() = 0;
     end;
 
     procedure doppeltDatensatz()
     var
+        //Erstellung der Records
         recAbwesenheitRoh: Record "Employee Absence";
         recHilfsTabelle: Record "Employee Absence";
+        recDoppel: Record DoppelteDatensatz;
+        ID: Integer;
+        Counter: Integer; //Zählvariable
     begin
-
+        //Tabelle leeren
+        recDoppel.DeleteAll();
+        ID := 1;
+        if recAbwesenheitRoh.FindSet() then
+            repeat
+                Counter := 0;
+                if recHilfsTabelle.FindSet() then
+                    repeat
+                        //Wenn gleiche einträge gefunden sind zähl die Variable hoch
+                        if recAbwesenheitRoh."Employee No." = recHilfsTabelle."Employee No." then
+                            if recAbwesenheitRoh."From Date" = recHilfsTabelle."From Date" then
+                                Counter := Counter + 1;
+                        //Einmal wird es immer hier rein gehen, doch sind wirklich Datensätze
+                        //Doppelt vorhanden geht diese über 1 und der Datensatz wird herausgeschrieben
+                        if Counter >= 2 then begin
+                            recDoppel.Init();
+                            ID := ID + 1;
+                            recDoppel.ID := ID;
+                            recDoppel.MitarbeiterNummer := recAbwesenheitRoh."Employee No.";
+                            recDoppel.Datum := recAbwesenheitRoh."From Date";
+                            recDoppel.Insert();
+                            //Zähler wieder auf 0
+                            Counter := 0;
+                        end;
+                    until recHilfsTabelle.Next() = 0;
+            until recAbwesenheitRoh.Next() = 0;
     end;
 
+    procedure fillReport()
+    var
+        recReport: Record ReportTable;
+        recDepartment: Record Manufacturer;
+        recTFT: Record TableTFT;
+        recASFT: Record TableASFT;
+        recPSFT: Record TablePSFT;
+        recDimZeit: Record DimZeit;
+        recDimMitarbeiter: Record DimMitarbeiter;
+        recDimAbwesenheitsgrund: Record DimAbwesenheitsgrund;
+        recAbwesenheitRoh: Record "Employee Absence";
+        krankstandMontags: Integer;
+        arbeitsMontage: Integer;
+        KrankheitstageMontags: Integer;
+        monat: Integer;
+
+
+    begin
+        recReport.DeleteAll();
+        recDimMitarbeiter.SetRange(Abteilung, 'PROD');
+        if recDimMitarbeiter.FindSet() then begin
+            recReport.DepID := recDimMitarbeiter.Abteilung;
+            recReport.Abteilungsname := 'PROD';
+            krankstandMontags := 0;
+            KrankheitstageMontags := 0;
+
+            recTFT.SetRange(MitarbeiterID, recDimMitarbeiter.MitarbeiterNummer);
+            if recTFT.FindSet() then
+                repeat
+                    recReport.Init();
+                    recDimZeit.SetRange(Datum, recTFT.Datum);
+                    if recDimZeit.FindSet() then begin
+                        recReport.Monatsname := Format(recDimZeit.Jahr) + ' ' + Format(recDimZeit.Datum, 0, '<Month Text>');
+                        monat := recDimZeit.Monat;
+                        recReport.MonthID := Format(recDimZeit.Jahr) + '-' + Format(monat);
+                        recDimZeit.Reset();
+                        recDimZeit.SetRange(recDimZeit.Monat, monat);
+                        arbeitsMontage := 0;
+                        if recDimZeit.FindSet() then
+                            repeat
+                                if recDimZeit.Wochentag = 'Montag' then
+                                    arbeitsMontage := arbeitsMontage + 1;
+                            until recDimZeit.Next() = 0;
+
+                        if recTFT.AbwesenheitsMontag then
+                            KrankheitstageMontags := KrankheitstageMontags + 1;
+
+                        krankstandMontags := KrankheitstageMontags / (arbeitsMontage * recDimMitarbeiter.Count);
+
+                    end;
+                    recReport.ArbeitstageMontags := arbeitsMontage;
+                    recReport.KrankheitstageMontags := krankstandMontags;
+                    recReport.KrankenstandMontags := krankstandMontags;
+                    recReport.Insert();
+
+                until recTFT.Next() = 0;
+        end;
+
+
+    end;
+    //Gibt das Quartal zu dem Monat aus
     procedure Quartalberechnen(Monat: Integer): Integer
     var
         ergbnis: Integer;
@@ -254,6 +463,7 @@ page 123456701 PageFinal
         end;
     end;
 
+    //Prüft ob es ein Arbeitstag ist
     procedure isWorkday(Datum: Date) return: Boolean
     var
         Rec7602: Record 7602;
@@ -263,6 +473,7 @@ page 123456701 PageFinal
         return := not Cu7600.IsNonworkingDay(Datum, Rec7602);
     end;
 
+    //Variablen für die Datumsfilter 
     var
         StartDateFilter: Date;
         EndDateFilter: Date;

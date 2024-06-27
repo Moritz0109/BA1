@@ -25,7 +25,7 @@ table 123456703 TableASFT
             Caption = 'EndeAbwesenheit';
             DataClassification = CustomerContent;
         }
-        field(5; GrundID; Integer)
+        field(5; GrundID; Code[10])
         {
             Caption = 'GrundID';
             DataClassification = CustomerContent;
