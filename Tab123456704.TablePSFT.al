@@ -35,7 +35,7 @@ table 123456704 TablePSFT
             Caption = 'Abwesenheitstag';
             DataClassification = CustomerContent;
         }
-        field(7; GrundID; Integer)
+        field(7; GrundID; Code[10])
         {
             Caption = 'GrundID';
             DataClassification = CustomerContent;

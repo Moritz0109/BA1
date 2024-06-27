@@ -6,7 +6,7 @@ page 123456702 ListPartPSFT
     Caption = 'ListPartPSFT';
     PageType = ListPart;
     SourceTable = TablePSFT;
-    
+
     layout
     {
         area(Content)
@@ -40,26 +40,6 @@ page 123456702 ListPartPSFT
                 field(Monat; Rec.Monat)
                 {
                     ToolTip = 'Specifies the value of the Monat field.', Comment = '%';
-                }
-                field(SystemCreatedAt; Rec.SystemCreatedAt)
-                {
-                    ToolTip = 'Specifies the value of the SystemCreatedAt field.', Comment = '%';
-                }
-                field(SystemCreatedBy; Rec.SystemCreatedBy)
-                {
-                    ToolTip = 'Specifies the value of the SystemCreatedBy field.', Comment = '%';
-                }
-                field(SystemId; Rec.SystemId)
-                {
-                    ToolTip = 'Specifies the value of the SystemId field.', Comment = '%';
-                }
-                field(SystemModifiedAt; Rec.SystemModifiedAt)
-                {
-                    ToolTip = 'Specifies the value of the SystemModifiedAt field.', Comment = '%';
-                }
-                field(SystemModifiedBy; Rec.SystemModifiedBy)
-                {
-                    ToolTip = 'Specifies the value of the SystemModifiedBy field.', Comment = '%';
                 }
                 field(Tag; Rec.Tag)
                 {

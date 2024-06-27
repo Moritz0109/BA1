@@ -20,7 +20,7 @@ table 123456705 TableTFT
             Caption = 'Datum';
             DataClassification = SystemMetadata;
         }
-        field(4; AbwesenheitsID; Integer)
+        field(4; AbwesenheitsID; Code[10])
         {
             Caption = 'AbwesenheitsID';
             DataClassification = CustomerContent;

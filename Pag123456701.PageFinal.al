@@ -2,6 +2,7 @@ namespace BA.BA;
 using Microsoft.HumanResources.Employee;
 using Microsoft.Foundation.Calendar;
 using System.Utilities;
+using Microsoft.HumanResources.Absence;
 
 page 123456701 PageFinal
 {
@@ -34,10 +35,15 @@ page 123456701 PageFinal
             }
             group(Facttable)
             {
-                part(PSFT; ListPartDimZeit)
+                part(PSFT; ListPartPSFT)
                 {
                     Editable = true;
                 }
+                part(TFT; ListPartTFT)
+                {
+                    Editable = true;
+                }
+
             }
         }
     }
@@ -59,6 +65,9 @@ page 123456701 PageFinal
                     begin
                         fillDimMitarbeiter();
                         fillDimZeit();
+                        fillDimAbwesenheitsgrund();
+                        fillPSFT();
+                        fillTFT();
                         Message('Erfolgreich geladen');
                     end;
 
@@ -102,7 +111,6 @@ page 123456701 PageFinal
         Rec7602: Record 7602;
     begin
         RecDimZeit.DeleteAll();
-        Rec7602."Base Calendar Code" := 'DE';
         RecBasiskalender.SetRange(RecBasiskalender."Period Type", 0);
         // //Fehlerhandling erforderlich!!!
         RecBasiskalender.SetFilter("Period Start", '%1..%2', StartDateFilter, EndDateFilter);
@@ -114,31 +122,136 @@ page 123456701 PageFinal
                 RecDimZeit.Monat := Date2DMY(RecBasiskalender."Period Start", 2);
                 RecDimZeit.Jahr := Date2DMY(RecBasiskalender."Period Start", 3);
                 RecDimZeit.Quartal := Quartalberechnen(RecDimZeit.Monat);
-                if Rec7602.FindFirst() then
-                    if CU7600.IsNonworkingDay(RecDimZeit.Datum, Rec7602) then
-                        RecDimZeit.IstArbeitstag := false
-                    else
-                        RecDimZeit.IstArbeitstag := true
-                else
-                    Message('Tabelle 7602 leer!');
+                RecDimZeit.IstArbeitstag := isWorkday(RecBasiskalender."Period Start");
                 RecDimZeit.Insert();
 
             until RecBasiskalender.Next() = 0;
 
     end;
-    // var
-    //     Msg: Label 'Today is %1.\And today is %2.';
-    //     DateForWeek: Record Date;
-    // begin
-    //     if DateForWeek.Get(DateForWeek."Period Type"::Date, Today) then
-    //         Message(Msg, StartDateFilter, DateForWeek."Period Name");
-    // end;
+
+    procedure fillDimAbwesenheitsgrund()
+    var
+        RecDimAbwesenheitsgrund: Record DimAbwesenheitsgrund;
+        RecAbwesenheitsgrund: Record 5206;
+    begin
+        RecDimAbwesenheitsgrund.DeleteAll();
+        if RecAbwesenheitsgrund.FindSet() then
+            repeat
+                RecDimAbwesenheitsgrund.Init();
+                RecDimAbwesenheitsgrund.GrundID := RecAbwesenheitsgrund.Code;
+                RecDimAbwesenheitsgrund.Grundbezeichnung := RecAbwesenheitsgrund.Description;
+                RecDimAbwesenheitsgrund.Insert()
+            until RecAbwesenheitsgrund.Next() = 0;
+    end;
+
+    procedure fillPSFT()
+    var
+        recPSFT: Record TablePSFT;
+        recDimZeit: Record DimZeit;
+        recDimMitarbeiter: Record DimMitarbeiter;
+        recDimAbwesenheitsgrund: Record DimAbwesenheitsgrund;
+        recAbwesenheitRoh: Record "Employee Absence";
+    begin
+        recPSFT.DeleteAll();
+        if recDimZeit.FindSet() then
+            repeat
+                if recDimMitarbeiter.FindSet() then
+                    repeat
+                        // if recDimAbwesenheitsgrund.FindSet() then
+                        //     repeat
+                        recPSFT.Init();
+                        recPSFT.Tag := recDimZeit.Tag;
+                        recPSFT.Monat := recDimZeit.Monat;
+                        recPSFT.Jahr := recDimZeit.Jahr;
+                        recPSFT.MitarbeiterID := recDimMitarbeiter.MitarbeiterNummer;
+                        recPSFT.Abteilung := recDimMitarbeiter.Abteilung;
+                        recAbwesenheitRoh.SetRange("Employee No.", recDimMitarbeiter.MitarbeiterNummer);
+                        recAbwesenheitRoh.SetRange("From Date", recDimZeit.Datum);
+                        if recAbwesenheitRoh.FindSet() then begin
+                            recPSFT.Abwesenheitstag := true;
+                            recPSFT.GrundID := recAbwesenheitRoh."Cause of Absence Code";
+                            if recDimZeit.Wochentag = 'Montag' then
+                                recPSFT.AbwesenheitsMontag := true;
+                        end
+                        else begin
+                            recPSFT.Abwesenheitstag := false;
+                            recPSFT.AbwesenheitsMontag := false;
+                        end;
+                        recAbwesenheitRoh.Reset();
+                        recPSFT.Insert();
+                    // until recDimAbwesenheitsgrund.Next() = 0;
+                    until recDimMitarbeiter.Next() = 0;
+            until recDimZeit.Next() = 0;
+    end;
+
+    procedure fillTFT()
+    var
+        recTFT: Record TableTFT;
+        recDimZeit: Record DimZeit;
+        recDimMitarbeiter: Record DimMitarbeiter;
+        recDimAbwesenheitsgrund: Record DimAbwesenheitsgrund;
+        recAbwesenheitRoh: Record "Employee Absence";
+        TFTID: Integer;
+    begin
+        recTFT.DeleteAll();
+        TFTID := 1;
+        recAbwesenheitRoh.SetRange("From Date", StartDateFilter, EndDateFilter);
+        if recAbwesenheitRoh.FindSet() then
+            repeat
+                recTFT.Init();
+                TFTID := TFTID + 1;
+                recTFT.TFTID := TFTID;
+                recTFT.MitarbeiterID := recAbwesenheitRoh."Employee No.";
+                recTFT.Datum := recAbwesenheitRoh."From Date";
+                recTFT.AbwesenheitsID := recAbwesenheitRoh."Cause of Absence Code";
+                recDimZeit.SetRange(recDimZeit.Datum, recTFT.Datum);
+                if recDimZeit.FindSet() then
+                    recTFT.Wochentag := recDimZeit.Wochentag;
+                if recDimZeit.Wochentag = 'Montag' then
+                    recTFT.AbwesenheitsMontag := true;
+                recTFT.Insert();
+                recDimZeit.Reset();
+            until recAbwesenheitRoh.Next() = 0;
+
+    end;
+
+    procedure fillASFT()
+    var
+        recASFT: Record TableTFT;
+        recDimZeit: Record DimZeit;
+        recDimMitarbeiter: Record DimMitarbeiter;
+        recDimAbwesenheitsgrund: Record DimAbwesenheitsgrund;
+        recAbwesenheitRoh: Record "Employee Absence";
+    begin
+        recASFT.DeleteAll();
+
+
+    end;
+
+    procedure doppeltDatensatz()
+    var
+        recAbwesenheitRoh: Record "Employee Absence";
+        recHilfsTabelle: Record "Employee Absence";
+    begin
+
+    end;
+
     procedure Quartalberechnen(Monat: Integer): Integer
     var
         ergbnis: Integer;
     begin
-        ergbnis := (Monat / 3 + 1);
-        exit(ergbnis);
+        case Monat of
+            1, 2, 3:
+                exit(1);
+            4, 5, 6:
+                exit(2);
+            7, 8, 9:
+                exit(3);
+            10, 11, 12:
+                exit(4);
+            else
+                exit(0);
+        end;
     end;
 
     procedure isWorkday(Datum: Date) return: Boolean
